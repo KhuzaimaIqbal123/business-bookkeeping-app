@@ -121,4 +121,86 @@ router.post('/:id/entries', async (req, res) => {
   }
 });
 
+// Update an entry
+router.put('/:partyId/entries/:entryId', async (req, res) => {
+  try {
+    const {
+      itemName,
+      numberOfItems,
+      rate,
+      amount,
+      totalBill,
+      bnam,
+      jama,
+      type,
+      description
+    } = req.body;
+
+    const party = await Party.findById(req.params.partyId);
+    if (!party) return res.status(404).json({ error: 'Party not found' });
+
+    const entryIndex = party.entries.findIndex(entry => entry._id.toString() === req.params.entryId);
+    if (entryIndex === -1) return res.status(404).json({ error: 'Entry not found' });
+
+    // Update the entry fields
+    const updatedEntry = {
+      ...party.entries[entryIndex],
+      itemName: itemName || "",
+      numberOfItems: numberOfItems || 0,
+      rate: rate || 0,
+      amount: amount || "",
+      totalBill: totalBill || 0,
+      bnam: bnam || 0,
+      jama: jama || 0,
+      type: type || "cash",
+      description: description || ""
+    };
+
+    party.entries[entryIndex] = updatedEntry;
+
+    // Recalculate all balances from this entry forward
+    for (let i = 0; i < party.entries.length; i++) {
+      const previousBalance = i === 0 ? 0 : party.entries[i - 1].remainingBalance;
+      party.entries[i].remainingBalance = previousBalance + 
+        (party.entries[i].jama || 0) - 
+        (party.entries[i].bnam || 0);
+    }
+
+    await party.save();
+
+    res.json({ message: 'Entry updated', updatedEntry: party.entries[entryIndex] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update entry' });
+  }
+});
+
+// Delete an entry
+router.delete('/:partyId/entries/:entryId', async (req, res) => {
+  try {
+    const party = await Party.findById(req.params.partyId);
+    if (!party) return res.status(404).json({ error: 'Party not found' });
+
+    const entryIndex = party.entries.findIndex(entry => entry._id.toString() === req.params.entryId);
+    if (entryIndex === -1) return res.status(404).json({ error: 'Entry not found' });
+
+    // Remove the entry
+    party.entries.splice(entryIndex, 1);
+
+    // Recalculate all balances from the deleted point forward
+    for (let i = 0; i < party.entries.length; i++) {
+      const previousBalance = i === 0 ? 0 : party.entries[i - 1].remainingBalance;
+      party.entries[i].remainingBalance = previousBalance + 
+        (party.entries[i].jama || 0) - 
+        (party.entries[i].bnam || 0);
+    }
+
+    await party.save();
+    res.json({ message: 'Entry deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete entry' });
+  }
+});
+
 module.exports = router;

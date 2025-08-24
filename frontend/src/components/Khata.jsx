@@ -83,6 +83,14 @@ const lightBtn = {
   boxShadow: 'none',
 };
 
+const inlineInputStyle = {
+  width: '100%',
+  padding: '4px',
+  border: '1px solid #d1d5db',
+  borderRadius: '4px',
+  fontSize: '14px'
+};
+
 const partyBtn = {
   padding: '10px 14px',
   borderRadius: '999px',
@@ -164,6 +172,8 @@ const [formData, setFormData] = useState({
   amount: '', // <-- new field
 });
 
+const [editingEntryId, setEditingEntryId] = useState(null);
+const [editedEntry, setEditedEntry] = useState({});
 
   const [newPartyName, setNewPartyName] = useState('');
   const [showEntryTypeOptions, setShowEntryTypeOptions] = useState(false);
@@ -223,6 +233,64 @@ const [formData, setFormData] = useState({
       setLoadingCheques(false);
     }
   };
+
+const handleEditClick = (entry) => {
+  setEditingEntryId(entry._id);
+  setEditedEntry({
+    itemName: entry.itemName,
+    numberOfItems: entry.numberOfItems,
+    rate: entry.rate,
+    amount: entry.amount,
+    totalBill: entry.totalBill,
+    bnam: entry.bnam,
+    jama: entry.jama,
+    type: entry.type,
+    description: entry.description
+  });
+};
+
+const handleSaveEdit = async (entryId) => {
+  try {
+    const res = await axios.put(
+      `http://localhost:5000/api/parties/${selectedParty._id}/entries/${entryId}`,
+      editedEntry
+    );
+
+    // Update local state
+    setSelectedParty(prev => ({
+      ...prev,
+      entries: prev.entries.map(entry => 
+        entry._id === entryId ? res.data.updatedEntry : entry
+      )
+    }));
+
+    setEditingEntryId(null);
+    setEditedEntry({});
+    alert('Entry updated successfully');
+  } catch (err) {
+    console.error('Failed to update entry:', err);
+    alert('Failed to update entry');
+  }
+};
+
+const handleDeleteEntry = async (entryId) => {
+  if (!window.confirm('Are you sure you want to delete this entry?')) return;
+  
+  try {
+    await axios.delete(`http://localhost:5000/api/parties/${selectedParty._id}/entries/${entryId}`);
+    
+    // Update local state
+    setSelectedParty(prev => ({
+      ...prev,
+      entries: prev.entries.filter(entry => entry._id !== entryId)
+    }));
+    
+    alert('Entry deleted successfully');
+  } catch (err) {
+    console.error('Failed to delete entry:', err);
+    alert('Failed to delete entry');
+  }
+};
 
   const handlePartyClick = async (partyId) => {
     try {
@@ -621,45 +689,198 @@ const [formData, setFormData] = useState({
               <div style={sectionTitle}>Entries Table</div>
               <div style={tableContainerStyle}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>Date</th>
-                      <th style={thStyle}>Item</th>
-                      <th style={thStyle}>Qty</th>
-                      <th style={thStyle}>Rate</th>
-                      <th style={thStyle}>Total Bill</th>
-                      <th style={thStyle}>Bnam</th>
-                      <th style={thStyle}>Jama</th>
-                      <th style={thStyle}>Amount</th>
-                      <th style={thStyle}>Type</th>
-                      <th style={thStyle}>Description</th>
-                      <th style={thStyle}>Baki</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(selectedParty.entries || []).map((entry, index) => (
-                      <tr key={index}>
-                        <td style={tdStyle}>{entry.date?.slice(0, 10)}</td>
-                        <td style={tdStyle}>{entry.itemName}</td>
-                        <td style={tdStyle}>{entry.numberOfItems}</td>
-                        <td style={tdStyle}>{entry.rate}</td>
-                        <td style={tdStyle}>{entry.amount ? entry.amount : entry.totalBill}</td>
-                        <td style={tdStyle}>{entry.bnam === 0 ? '' : entry.bnam}</td>
-                        <td style={tdStyle}>{entry.jama === 0 ? '' : entry.jama}</td>
-                        <td style={tdStyle}>{entry.amount}</td>  
-                        <td style={tdStyle}>{entry.type}</td>
-                        <td style={tdStyle}>{entry.description}</td>
-                        <td style={tdStyle}>{Math.abs(entry.remainingBalance)}</td>
-                      </tr>
-                    ))}
-                    {(selectedParty.entries || []).length === 0 && (
-                      <tr>
-                        <td style={{ ...tdStyle, textAlign: 'center' }} colSpan="10">
-                          No entries yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
+               <thead>
+  <tr>
+    <th style={thStyle}>Date</th>
+    <th style={thStyle}>Item</th>
+    <th style={thStyle}>Qty</th>
+    <th style={thStyle}>Rate</th>
+    <th style={thStyle}>Total Bill</th>
+    <th style={thStyle}>Bnam</th>
+    <th style={thStyle}>Jama</th>
+    <th style={thStyle}>Amount</th>
+    <th style={thStyle}>Type</th>
+    <th style={thStyle}>Description</th>
+    <th style={thStyle}>Baki</th>
+    <th style={thStyle}>Actions</th>
+  </tr>
+</thead>
+                 <tbody>
+  {(selectedParty.entries || []).map((entry, index) => (
+    <tr key={entry._id || index}>
+      <td style={tdStyle}>{entry.date?.slice(0, 10)}</td>
+      
+      {/* Item Name */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="text"
+            value={editedEntry.itemName || entry.itemName}
+            onChange={(e) => setEditedEntry({...editedEntry, itemName: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.itemName
+        )}
+      </td>
+      
+      {/* Number of Items */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="number"
+            value={editedEntry.numberOfItems ?? entry.numberOfItems}
+            onChange={(e) => setEditedEntry({...editedEntry, numberOfItems: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.numberOfItems
+        )}
+      </td>
+      
+      {/* Rate */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="number"
+            value={editedEntry.rate ?? entry.rate}
+            onChange={(e) => setEditedEntry({...editedEntry, rate: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.rate
+        )}
+      </td>
+      
+      {/* Total Bill */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="number"
+            value={editedEntry.amount ?? (editedEntry.totalBill ?? entry.totalBill)}
+            onChange={(e) => setEditedEntry({...editedEntry, amount: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.amount ? entry.amount : entry.totalBill
+        )}
+      </td>
+      
+      {/* Bnam */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="number"
+            value={editedEntry.bnam ?? entry.bnam}
+            onChange={(e) => setEditedEntry({...editedEntry, bnam: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.bnam === 0 ? '' : entry.bnam
+        )}
+      </td>
+      
+      {/* Jama */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="number"
+            value={editedEntry.jama ?? entry.jama}
+            onChange={(e) => setEditedEntry({...editedEntry, jama: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.jama === 0 ? '' : entry.jama
+        )}
+      </td>
+      
+      {/* Amount */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="number"
+            value={editedEntry.amount ?? entry.amount}
+            onChange={(e) => setEditedEntry({...editedEntry, amount: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.amount
+        )}
+      </td>
+      
+      {/* Type */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <select
+            value={editedEntry.type ?? entry.type}
+            onChange={(e) => setEditedEntry({...editedEntry, type: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          >
+            <option value="cash">Cash</option>
+            <option value="cheque">Cheque</option>
+          </select>
+        ) : (
+          entry.type
+        )}
+      </td>
+      
+      {/* Description */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <input
+            type="text"
+            value={editedEntry.description ?? entry.description}
+            onChange={(e) => setEditedEntry({...editedEntry, description: e.target.value})}
+            style={{ ...inputStyle, width: '100%', padding: '4px' }}
+          />
+        ) : (
+          entry.description
+        )}
+      </td>
+      
+      {/* Baki (Read-only) */}
+      <td style={tdStyle}>{Math.abs(entry.remainingBalance)}</td>
+      
+      {/* Actions */}
+      <td style={tdStyle}>
+        {editingEntryId === entry._id ? (
+          <div style={{ display: 'flex', gap: '5px' }}>
+            <button
+              onClick={() => handleSaveEdit(entry._id)}
+              style={{ ...lightBtn, padding: '4px 8px', background: '#10b981' }}
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setEditingEntryId(null);
+                setEditedEntry({});
+              }}
+              style={{ ...lightBtn, padding: '4px 8px', background: '#6b7280' }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '5px' }}>
+            <button
+              onClick={() => handleEditClick(entry)}
+              style={{ ...lightBtn, padding: '4px 8px' }}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => handleDeleteEntry(entry._id)}
+              style={{ ...btn, padding: '4px 8px', background: '#dc2626' }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </td>
+    </tr>
+  ))}
+</tbody>
                 </table>
               </div>
             </div>
