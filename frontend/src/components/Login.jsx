@@ -11,7 +11,7 @@ export default function Login({ setAuth }) {
     e.preventDefault();
 
     // ✅ Hardcoded credentials
-    if (name === 'ali' && password === 'ali') {
+    if (name === 'ali' && password === '123') {
       setAuth(true);
       sessionStorage.setItem('isAuthenticated', 'true');
       navigate('/');
