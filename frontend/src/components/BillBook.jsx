@@ -1,11 +1,27 @@
 // src/components/BillBook.jsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import logo from "./roznamcha/pic.png";
 
 export default function BillBook({ setAuth }) {
   const printRef = useRef();
+  const [logoDataUrl, setLogoDataUrl] = useState("");
+
+  // Convert image to data URL for printing
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = logo;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      setLogoDataUrl(canvas.toDataURL("image/png"));
+    };
+  }, [logo]);
 
   const [billInfo, setBillInfo] = useState({
     date: "",
@@ -55,53 +71,162 @@ export default function BillBook({ setAuth }) {
     0
   );
 
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank", "width=900,height=700");
-    if (!printWindow) return;
-
-    const billContent = printRef.current.cloneNode(true);
-
+ const handlePrint = () => {
+    const printContent = printRef.current.cloneNode(true);
+    
     // Replace all inputs with spans for printing
-    billContent.querySelectorAll("input").forEach((input) => {
+    printContent.querySelectorAll("input").forEach((input) => {
       const span = document.createElement("span");
       span.textContent = input.value;
-      input.parentNode.replaceChild(span, input);
+      span.style.display = "inline-block";
+      span.style.minWidth = "100px";
+      span.style.padding = "2px 5px";
     });
+
+    // Update logo src to data URL for printing
+    const logoImg = printContent.querySelector("img");
+    if (logoImg && logoDataUrl) {
+      logoImg.src = logoDataUrl;
+    }
 
     // Remove empty rows
-    const tableBody = billContent.querySelector("tbody");
-    Array.from(tableBody.querySelectorAll("tr")).forEach((tr) => {
-      if (!tr.classList.contains("total-row")) {
-        const tds = tr.querySelectorAll("td");
-        const hasValue = Array.from(tds).some(
-          (td) => td.textContent.trim() !== ""
-        );
-        if (!hasValue) tr.remove();
-      }
-    });
+    const tableBody = printContent.querySelector("tbody");
+    if (tableBody) {
+      Array.from(tableBody.querySelectorAll("tr")).forEach((tr) => {
+        if (!tr.classList.contains("total-row")) {
+          const tds = tr.querySelectorAll("td");
+          const hasValue = Array.from(tds).some(
+            (td) => td.textContent.trim() !== ""
+          );
+          if (!hasValue) tr.remove();
+        }
+      });
+    }
 
-    const style = document.createElement("style");
-    style.innerHTML = `
-      body { font-family: Arial, sans-serif; padding: 20px; }
-      h2, h3, h4 { margin: 0; }
-      .bill-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-weight: bold; }
-      .bill-info div { display: flex; flex-direction: column; }
-      table { width: 100%; border-collapse: collapse; font-size: 14px; }
-      th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
-      th { background-color: #2c3e50; color: white; }
-      tr:nth-child(even) { background-color: #f9f9f9; }
-      tr:nth-child(odd) { background-color: #ffffff; }
-      .total-row td { font-weight: bold; background-color: #f0f0f0; }
-      .signature { margin-top: 40px; display: flex; justify-content: space-between; font-weight: bold; }
-      .brand-section { background-color: yellow; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
+    if (!printWindow) return;
+
+    const printDocument = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Print Bill</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            margin: 0;
+            background-color: #f5f5f5;
+          }
+          .bill-container {
+            width: 900px;
+            background: #f5f5f5;
+            padding: 30px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin: 0 auto;
+          }
+          .bill-info { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 20px; 
+            font-weight: bold; 
+          }
+          .bill-info div { 
+            display: flex; 
+            flex-direction: column; 
+          }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 15px; 
+            margin-bottom: 20px;
+          }
+          th, td { 
+            border: 1px solid #ccc; 
+            padding: 10px; 
+            text-align: center; 
+          }
+          th { 
+            background-color: #2c3e50; 
+            color: white; 
+          }
+          .total-row td { 
+            font-weight: bold; 
+            background-color: #f0f0f0; 
+          }
+          .signature { 
+            margin-top: 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            font-weight: bold; 
+          }
+          .brand-section { 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #ffcd18ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+          }
+          .brand-section img {
+            width: 200px; 
+            height: 200px; 
+            margin-top: -10px;
+          }
+          .brand-info {
+            flex: 1; 
+            text-align: right; 
+            padding-left: 20px;
+          }
+          .print-actions {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+          }
+          @media print {
+            .print-actions {
+              display: none;
+            }
+            body {
+              background-color: white;
+            }
+            .bill-container {
+              box-shadow: none;
+              border: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="bill-container">
+          ${printContent.innerHTML}
+        </div>
+        <div class="print-actions">
+          <button onclick="window.print()" style="padding: 10px 20px; margin-right: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Print Bill
+          </button>
+          <button onclick="window.close()" style="padding: 10px 20px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Close
+          </button>
+        </div>
+        <script>
+          // Auto-print when window loads
+          window.onload = function() {
+            // Focus the window for better printing experience
+            window.focus();
+          };
+        </script>
+      </body>
+      </html>
     `;
-    printWindow.document.head.appendChild(style);
-    printWindow.document.body.appendChild(billContent);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
 
+    printWindow.document.open();
+    printWindow.document.write(printDocument);
+    printWindow.document.close();
+  };
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Navbar setAuth={setAuth} />
@@ -314,7 +439,6 @@ export default function BillBook({ setAuth }) {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              
               marginTop: "30px",
               fontWeight: "bold",
             }}
@@ -325,44 +449,43 @@ export default function BillBook({ setAuth }) {
         </div>
       </div>
 
-   {/* Print Button */}
-<div 
-  style={{ 
-    textAlign: "center",
-    backgroundColor: "#021f37ff",
-    padding: "30px",
-    width: "100%",
-  }}
->
-  <button
-    onClick={handlePrint}
-    style={{
-      padding: "12px 28px",
-      backgroundColor: "#276fb7ff",
-      color: "white",
-      border: "none",
-      cursor: "pointer",
-      borderRadius: "6px",
-      fontSize: "16px",
-      fontWeight: "bold",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-      transition: "all 0.3s ease-in-out", // smooth hover effect
-    }}
-    onMouseEnter={(e) => {
-      e.target.style.backgroundColor = "#1b4e85"; // darker blue on hover
-      e.target.style.transform = "scale(1.05)";   // little zoom
-      e.target.style.boxShadow = "0 6px 16px rgba(0,0,0,0.3)";
-    }}
-    onMouseLeave={(e) => {
-      e.target.style.backgroundColor = "#276fb7ff";
-      e.target.style.transform = "scale(1)";
-      e.target.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
-    }}
-  >
-    Print Bill
-  </button>
-</div>
-
+      {/* Print Button */}
+      <div 
+        style={{ 
+          textAlign: "center",
+          backgroundColor: "#021f37ff",
+          padding: "30px",
+          width: "100%",
+        }}
+      >
+        <button
+          onClick={handlePrint}
+          style={{
+            padding: "12px 28px",
+            backgroundColor: "#276fb7ff",
+            color: "white",
+            border: "none",
+            cursor: "pointer",
+            borderRadius: "6px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            transition: "all 0.3s ease-in-out",
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = "#1b4e85";
+            e.target.style.transform = "scale(1.05)";
+            e.target.style.boxShadow = "0 6px 16px rgba(0,0,0,0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = "#276fb7ff";
+            e.target.style.transform = "scale(1)";
+            e.target.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+          }}
+        >
+          Print Bill
+        </button>
+      </div>
 
       <Footer />
     </div>
